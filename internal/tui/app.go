@@ -279,6 +279,9 @@ func (m Model) footer() string {
 	case scrDone:
 		return m.done.footer()
 	case scrPDFPick:
+		if m.pdfPick.mode == pickSite {
+			return keyHelp("enter", "create website", "esc", "back")
+		}
 		return keyHelp("tab", "folder/speed", "←/→", "speed", "enter", "convert", "esc", "back")
 	}
 	return ""

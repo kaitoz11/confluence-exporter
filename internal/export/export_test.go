@@ -65,7 +65,7 @@ func exportAndCheck(t *testing.T, client confluence.Client, wantUser string, clo
 	}
 	var mu sync.Mutex
 	var events []Event
-	res := Run(ctx, client, tree, Options{OutputDir: out, Attachments: true, PDF: true, Speed: SpeedFast}, func(e Event) {
+	res := Run(ctx, client, tree, Options{OutputDir: out, Attachments: true, PDF: true, Website: true, Speed: SpeedFast}, func(e Event) {
 		mu.Lock()
 		events = append(events, e)
 		mu.Unlock()
@@ -159,6 +159,8 @@ func exportAndCheck(t *testing.T, client confluence.Client, wantUser string, clo
 		t.Errorf("child order = %v", order)
 	}
 
+	checkWebsite(t, res, cloud)
+
 	// Running again must reuse the downloaded attachments and succeed.
 	res2 := Run(ctx, client, tree, Options{OutputDir: out, Attachments: true, Speed: SpeedGentle}, func(Event) {})
 	if len(res2.Warnings) > 0 || res2.Pages != 5 {
@@ -202,5 +204,68 @@ func TestParseSiteURL(t *testing.T) {
 		if err != nil || s.Base != c.base || s.SpaceKey != c.key || s.Cloud != c.cloud {
 			t.Errorf("ParseSiteURL(%q) = %+v, %v", c.in, s, err)
 		}
+	}
+}
+
+func checkWebsite(t *testing.T, res Result, cloud bool) {
+	t.Helper()
+	if res.Website != filepath.Join(res.Root, "index.html") {
+		t.Fatalf("website = %q", res.Website)
+	}
+	read := func(rel string) string {
+		b, err := os.ReadFile(filepath.Join(res.Root, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatalf("missing %s", rel)
+		}
+		return string(b)
+	}
+	for _, f := range []string{"_viewer/viewer.css", "_viewer/viewer.js", "_viewer/tree.js", "_viewer/search.js"} {
+		read(f)
+	}
+
+	index := read("index.html")
+	for _, s := range []string{"<title>Docs</title>", `href="Home/Home.html"`, "5 pages", `class="toc"`} {
+		if !strings.Contains(index, s) {
+			t.Errorf("index.html lacks %q", s)
+		}
+	}
+
+	home := read("Home/Home.html")
+	for _, s := range []string{
+		`href="../_viewer/viewer.css"`,
+		`<h1 class="title">Home</h1>`,
+		"Open in Confluence",
+		`src="_attachments/diagram%20v2.png"`,
+		`href="Getting%20Started/Getting%20Started.html"`,
+		`<ul class="attachments">`,
+		`target="_blank" rel="noopener"`,
+		`<pre><code class="language-java">`,
+		"Next →",
+	} {
+		if !strings.Contains(home, s) {
+			t.Errorf("Home.html lacks %q", s)
+		}
+	}
+	if strings.Count(home, "<h1") != 1 {
+		t.Errorf("Home.html should have exactly one title")
+	}
+
+	nested := read("Home/Getting Started/Getting Started/Getting Started.html")
+	for _, s := range []string{`src="../../../_viewer/viewer.js"`, `href="../../../Home/Getting%20Started/Getting%20Started.html">Getting Started</a>`} {
+		if !strings.Contains(nested, s) {
+			t.Errorf("nested page lacks %q", s)
+		}
+	}
+
+	tree := read("_viewer/tree.js")
+	if !strings.HasPrefix(tree, "window.SPACE = ") || !strings.Contains(tree, `"t":"Home"`) {
+		t.Errorf("tree.js = %.200s", tree)
+	}
+	// Sidebar order follows Confluence: FAQ before Getting Started.
+	if cloud && strings.Index(tree, "FAQ") > strings.Index(tree, `"t":"Getting Started"`) {
+		t.Errorf("tree order wrong: %s", tree)
+	}
+	if !strings.Contains(read("_viewer/search.js"), "Tiếng Việt") {
+		t.Errorf("search index lacks page text")
 	}
 }

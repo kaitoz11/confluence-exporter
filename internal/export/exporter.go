@@ -13,6 +13,7 @@ import (
 
 	"github.com/kaitoz11/confluence-exporter/internal/confluence"
 	"github.com/kaitoz11/confluence-exporter/internal/pdf"
+	"github.com/kaitoz11/confluence-exporter/internal/site"
 )
 
 // Options control an export.
@@ -21,6 +22,7 @@ type Options struct {
 	OutputDir   string
 	Attachments bool
 	PDF         bool
+	Website     bool // also build a browsable offline website (index.html)
 	Speed       Speed
 }
 
@@ -28,6 +30,7 @@ type Options struct {
 const (
 	PhasePages = "Downloading pages"
 	PhasePDF   = "Creating PDF files"
+	PhaseSite  = "Building the website"
 )
 
 // Event reports progress to the UI.
@@ -46,6 +49,7 @@ type Result struct {
 	Attachments     int
 	AttachmentBytes int64
 	PDFs            int
+	Website         string // index.html of the website, when one was built
 	Warnings        []string
 	Canceled        bool
 	Duration        time.Duration
@@ -133,6 +137,10 @@ feed:
 		}
 	}
 
+	if opts.Website && ctx.Err() == nil && len(mdFiles) > 0 {
+		res.Website = buildSite(ctx, root, tree.Space.Name, emit, warn)
+	}
+
 	if opts.PDF && ctx.Err() == nil && len(mdFiles) > 0 {
 		emit(Event{Phase: PhasePDF, Total: len(mdFiles)})
 		res.PDFs = convertPDFs(ctx, root, mdFiles, opts.Speed, emit, warn)
@@ -165,6 +173,74 @@ func ConvertFolderToPDF(ctx context.Context, root string, speed Speed, emit func
 	res.Canceled = ctx.Err() != nil
 	res.Duration = time.Since(start)
 	return res
+}
+
+// BuildFolderSite builds the website for an existing folder of Markdown
+// files, for example an earlier export.
+func BuildFolderSite(ctx context.Context, root string, emit func(Event)) Result {
+	start := time.Now()
+	root = exportFolder(root)
+	res := Result{Root: root}
+	warn := func(msg string) {
+		res.Warnings = append(res.Warnings, msg)
+		emit(Event{Warning: msg})
+	}
+	res.Website = buildSite(ctx, root, "", emit, warn)
+	res.Canceled = ctx.Err() != nil
+	res.Duration = time.Since(start)
+	return res
+}
+
+func buildSite(ctx context.Context, root, title string, emit func(Event), warn func(string)) string {
+	emit(Event{Phase: PhaseSite})
+	index, errs := site.Build(ctx, root, siteTitle(root, title), func(p site.Progress) {
+		emit(Event{Phase: PhaseSite, Done: p.Done, Total: p.Total})
+	})
+	for _, err := range errs {
+		warn("Website: " + err.Error())
+	}
+	if index != "" {
+		emit(Event{Message: "✓ Website ready: " + site.IndexFile})
+	}
+	return index
+}
+
+// exportFolder steps into the space folder when the user picked the folder
+// that holds a single export (for example "Confluence Export").
+func exportFolder(dir string) string {
+	if _, err := os.Stat(filepath.Join(dir, TOCFile)); err == nil {
+		return dir
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return dir
+	}
+	var found []string
+	for _, e := range entries {
+		if e.IsDir() {
+			if _, err := os.Stat(filepath.Join(dir, e.Name(), TOCFile)); err == nil {
+				found = append(found, filepath.Join(dir, e.Name()))
+			}
+		}
+	}
+	if len(found) == 1 {
+		return found[0]
+	}
+	return dir
+}
+
+// siteTitle prefers the space name; for a plain folder it uses the title of
+// the table of contents, or the folder name.
+func siteTitle(root, title string) string {
+	if title != "" {
+		return title
+	}
+	if data, err := os.ReadFile(filepath.Join(root, TOCFile)); err == nil {
+		if line, _, _ := strings.Cut(string(data), "\n"); strings.HasPrefix(line, "# ") {
+			return strings.TrimSpace(line[2:])
+		}
+	}
+	return filepath.Base(root)
 }
 
 func convertPDFs(ctx context.Context, root string, files []string, speed Speed, emit func(Event), warn func(string)) int {

@@ -16,6 +16,7 @@ type Config struct {
 	OutputDir   string `json:"output_dir"`
 	Attachments *bool  `json:"attachments,omitempty"`
 	PDF         *bool  `json:"pdf,omitempty"`
+	Website     *bool  `json:"website,omitempty"`
 	Speed       string `json:"speed,omitempty"` // Gentle, Normal or Fast
 	LastPDFDir  string `json:"last_pdf_dir,omitempty"`
 }

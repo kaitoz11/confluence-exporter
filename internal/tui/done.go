@@ -46,8 +46,20 @@ func (d doneModel) canMakePDFs() bool {
 	return !d.pdfOnly && d.res.Pages > 0 && d.res.PDFs == 0 && !d.res.Canceled
 }
 
+// canMakeSite is true after an export that did not build the website.
+func (d doneModel) canMakeSite() bool {
+	return !d.pdfOnly && d.res.Pages > 0 && d.res.Website == "" && !d.res.Canceled
+}
+
 func (d doneModel) footer() string {
-	pairs := []string{"o", "open folder"}
+	var pairs []string
+	switch {
+	case d.res.Website != "":
+		pairs = append(pairs, "w", "open website")
+	case d.canMakeSite():
+		pairs = append(pairs, "w", "create website")
+	}
+	pairs = append(pairs, "o", "open folder")
 	if d.canMakePDFs() {
 		pairs = append(pairs, "p", "create PDFs now")
 	}
@@ -65,8 +77,20 @@ func (m Model) updateDone(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	d := &m.done
 	switch k.String() {
+	case "w":
+		switch {
+		case d.res.Website != "":
+			if err := openPath(d.res.Website); err != nil {
+				d.status = sError.Render("Could not open the website: " + err.Error())
+			} else {
+				d.status = sSuccess.Render("Opened the website in your web browser.")
+			}
+		case d.canMakeSite():
+			cmd := m.startSite(d.res.Root)
+			return m, cmd
+		}
 	case "o", "enter":
-		if err := openFolder(d.res.Root); err != nil {
+		if err := openPath(d.res.Root); err != nil {
 			d.status = sError.Render("Could not open the folder: " + err.Error())
 		} else {
 			d.status = sSuccess.Render("Opened the folder in your file manager.")
@@ -111,13 +135,22 @@ func (m Model) viewDone() string {
 			row("Attachments", fmt.Sprintf("%d files (%s)", r.Attachments, export.HumanBytes(r.AttachmentBytes)))
 		}
 	}
-	if r.PDFs > 0 || d.pdfOnly {
+	if r.PDFs > 0 || (d.pdfOnly && r.Website == "") {
 		row("PDF files", itoa(r.PDFs))
+	}
+	if r.Website != "" {
+		row("Website", filepath.Base(r.Website)+"  "+sMuted.Render("(press w to open it in your browser)"))
 	}
 	row("Time", r.Duration.Round(time.Second).String())
 
-	if !d.pdfOnly && r.Pages > 0 {
+	switch {
+	case r.Website != "":
+		b.WriteString("\n  " + sMuted.Render("Press ") + sKey.Render("w") + sMuted.Render(" to browse the space like in Confluence: page tree, search, images and files.") + "\n")
+	case !d.pdfOnly && r.Pages > 0:
 		b.WriteString("\n  " + sMuted.Render("Start with ") + sText.Render(export.TOCFile) + sMuted.Render(" — it links to every exported page.") + "\n")
+	}
+	if d.canMakeSite() {
+		b.WriteString("  " + sMuted.Render("Want to browse it like a website? Press ") + sKey.Render("w") + sMuted.Render(" to create one.") + "\n")
 	}
 	if d.canMakePDFs() {
 		b.WriteString("  " + sMuted.Render("Want PDFs too? Press ") + sKey.Render("p") + sMuted.Render(" to convert all pages now.") + "\n")
@@ -141,8 +174,9 @@ func (m Model) viewDone() string {
 	return b.String()
 }
 
-// openFolder shows the folder in Finder, Explorer or the Linux file manager.
-func openFolder(dir string) error {
+// openPath opens a folder in Finder, Explorer or the Linux file manager, or
+// a file (such as index.html) in its default app.
+func openPath(dir string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":

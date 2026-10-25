@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{if .IsIndex}}{{.Space}}{{else}}{{.Title}} · {{.Space}}{{end}}</title>
+<link rel="stylesheet" href="{{.Root}}_viewer/viewer.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<div class="layout">
+  <aside class="sidebar" id="sidebar" aria-label="Pages">
+    <div class="sidebar-head">
+      <a class="space" href="{{.Root}}index.html" title="Space overview">
+        <span class="space-icon" aria-hidden="true">{{initial .Space}}</span>
+        <span class="space-name">{{.Space}}</span>
+      </a>
+      <label class="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="search" type="search" placeholder="Search pages" autocomplete="off" aria-label="Search pages">
+        <kbd>/</kbd>
+      </label>
+    </div>
+    <nav class="tree" id="tree"></nav>
+    <div class="results" id="results" hidden></div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <main class="main" id="content">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menu" aria-label="Show pages">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        {{if not .IsIndex}}<a href="{{.Root}}index.html">{{.Space}}</a><span class="sep">/</span>{{end}}
+        {{range .Crumbs}}{{if .Href}}<a href="{{$.Root}}{{.Href}}">{{.Title}}</a>{{else}}<span>{{.Title}}</span>{{end}}<span class="sep">/</span>{{end}}
+        <span class="current" aria-current="page">{{.Title}}</span>
+      </nav>
+      {{if .Original}}<a class="btn" href="{{.Original}}" target="_blank" rel="noopener">Open in Confluence <span aria-hidden="true">↗</span></a>{{end}}
+    </header>
+
+    <div class="page">
+      <article class="doc">
+        <h1 class="title">{{.Title}}</h1>
+        {{if .IsIndex}}<p class="lead">{{.Count}} pages · exported {{.Built}} · use the search box or pick a page below.</p>{{end}}
+        <div class="content">{{.Content}}</div>
+
+        <nav class="pager" aria-label="Previous and next page">
+          {{with .Prev}}<a class="prev" href="{{$.Root}}{{.Href}}"><small>← Previous</small><span>{{.Title}}</span></a>{{else}}<span></span>{{end}}
+          {{with .Next}}<a class="next" href="{{$.Root}}{{.Href}}"><small>Next →</small><span>{{.Title}}</span></a>{{end}}
+        </nav>
+      </article>
+      <aside class="outline" id="outline" aria-label="On this page"></aside>
+    </div>
+  </main>
+</div>
+
+<div class="lightbox" id="lightbox" hidden><img alt=""><button class="icon-btn" aria-label="Close">✕</button></div>
+
+<script>window.PAGE = {root: {{.Root}}, path: {{.Path}}};</script>
+<script src="{{.Root}}_viewer/tree.js"></script>
+<script src="{{.Root}}_viewer/viewer.js"></script>
+</body>
+</html>

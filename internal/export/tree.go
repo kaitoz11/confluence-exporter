@@ -10,13 +10,14 @@ import (
 	"unicode"
 
 	"github.com/kaitoz11/confluence-exporter/internal/confluence"
+	"github.com/kaitoz11/confluence-exporter/internal/site"
 )
 
 // AttachmentsDir is the folder, inside each page folder, holding its files.
 const AttachmentsDir = "_attachments"
 
 // TOCFile is the table of contents written at the root of the export.
-const TOCFile = "Table of Contents.md"
+const TOCFile = site.TOCFile
 
 // Node is one page (or folder) of the space tree.
 type Node struct {

@@ -56,8 +56,15 @@ func New(extra int) *Fake {
 <table><tbody><tr><th>Name</th><th>Value</th></tr><tr><td><p>a</p><p>b</p></td><td>2</td></tr></tbody></table>`},
 		{ID: "2", Title: "Getting Started", ParentID: "1", ParentType: "page", Position: 2,
 			Body: `<p>Back to <a href="/wiki/spaces/DOC/pages/1/Home">home</a>, file <a href="/wiki/download/attachments/1/report.pdf">report</a>.</p>`},
-		{ID: "3", Title: "FAQ: Q/A?", ParentID: "1", ParentType: "page", Position: 1, Body: `<p>Questions</p>`},
-		{ID: "4", Title: "Inside folder", ParentID: "900", ParentType: "folder", Position: 0, Body: `<p>In a folder</p>`},
+		{ID: "3", Title: "FAQ: Q/A?", ParentID: "1", ParentType: "page", Position: 1, Body: `<p>Questions</p>
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: mermaid; gutter: false">flowchart TD
+    A[Câu hỏi] --&gt; B{Đã có câu trả lời?}
+    B --&gt;|Có| C[Đọc FAQ]
+    B --&gt;|Chưa| D[Hỏi nhóm]</pre>`},
+		{ID: "4", Title: "Inside folder", ParentID: "900", ParentType: "folder", Position: 0, Body: `<p>In a folder</p>
+<div class="mermaid">sequenceDiagram
+    Alice-&gt;&gt;Bob: Hello Bob
+    Bob--&gt;&gt;Alice: Hi Alice</div>`},
 		{ID: "5", Title: "Getting Started", ParentID: "2", ParentType: "page", Position: 0, Body: `<p>Nested duplicate title</p>`},
 	}
 	f.folders = []page{{ID: "900", Title: "Team Folder", ParentID: "1", ParentType: "page", Position: 5}}

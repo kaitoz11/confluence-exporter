@@ -4,6 +4,7 @@ A friendly terminal app that copies a whole Confluence space to your computer:
 
 - every page becomes a **Markdown** file, in folders that mirror the space's page tree exactly
 - **attachments** (images and files) are downloaded next to their page, and images show inside the Markdown
+- a **website** (`index.html`) lets you browse the export like Confluence, offline: page tree, search, images, files
 - each page can also be saved as a **PDF**, and any folder of Markdown files can be converted to PDF later
 - links between pages keep working offline, and a `Table of Contents.md` links to everything
 
@@ -27,8 +28,8 @@ Works with **Confluence Cloud** (`*.atlassian.net`) and **Confluence Server / Da
    | 1 Connect | Enter your Confluence address (you can paste any Confluence link), your email and an API token. |
    | 2 Space | Pick the space. Press `/` to search. |
    | 3 Pages | Everything is ticked. Press **Space** to untick pages you don't want. |
-   | 4 Options | Choose the folder, attachments, and PDFs. |
-   | 5 Export | Watch the progress. When done, press **o** to open the folder. |
+   | 4 Options | Choose the folder, attachments, website and PDFs. |
+   | 5 Export | Watch the progress. When done, press **w** to open the website or **o** to open the folder. |
 
    Keys are always shown at the bottom of the screen. **Esc** goes back, **Ctrl+C** quits.
 
@@ -41,6 +42,22 @@ Works with **Confluence Cloud** (`*.atlassian.net`) and **Confluence Server / Da
 
 The token is only sent to your Confluence site. It is saved on your computer only if you tick *Remember my token*
 (in a file readable only by you).
+
+### Browsing the export (website)
+
+Open `index.html` in the export folder with any web browser. It works without internet and without installing
+anything:
+
+- **Page tree** on the left, in the same order as the Confluence sidebar, with the current page highlighted
+- **Search** box (press `/`) that looks in titles and page text and ignores accents: `huong dan` finds *Hướng dẫn*
+- **Breadcrumbs**, **Previous / Next** buttons and an **On this page** outline for long pages
+- **Images** open larger when clicked; **attachments** are shown as file cards you can click to open
+- **Diagrams** written in [Mermaid](https://mermaid.js.org) (`flowchart TD`, sequence diagrams, …) are drawn,
+  with their source one click away. PDFs show the diagram source with a note instead.
+- **Open in Confluence** button on each page, light and dark mode, and a phone-friendly layout
+
+For an earlier export, choose **Create a website from Markdown files** in the main menu, or press **w** on the
+final screen of an export that skipped it.
 
 ### PDFs
 
@@ -64,15 +81,19 @@ In tests, PDF creation used about 40 MB of memory on Gentle and about 80 MB on F
 
 ```
 Docs (DOC)/
+├── index.html                    ← open this to browse the space
 ├── Table of Contents.md
+├── _viewer/                      ← website files (style, search index)
 └── Home/
     ├── Home.md
+    ├── Home.html
     ├── Home.pdf
     ├── _attachments/
     │   ├── diagram.png
     │   └── report.xlsx
     ├── Getting Started/
     │   ├── Getting Started.md
+    │   ├── Getting Started.html
     │   └── Getting Started.pdf
     └── Team Folder/              ← Confluence folders become plain folders
         └── Onboarding/
@@ -90,6 +111,7 @@ Docs (DOC)/
 
 ```
 confluence-exporter              start the interactive app
+confluence-exporter html <folder> build the offline website (index.html) for an export folder (no UI)
 confluence-exporter [--speed gentle|normal|fast] pdf <folder>
                                  convert every .md file under <folder> to PDF (no UI, for scripts)
 confluence-exporter --version
@@ -127,5 +149,6 @@ make dist     # single-file binaries for macOS, Windows and Linux (x64 + ARM64) 
 | `internal/confluence` | REST client. Cloud uses API v2 (pages, folders, attachments, cursor pagination). Server/DC uses API v1. Retries on rate limits (429) and server errors. |
 | `internal/export` | Builds the page tree, picks safe file names, converts each page's `export_view` HTML to Markdown, rewrites links to attachments and other pages into relative paths, and downloads attachments with 4 parallel workers. |
 | `internal/pdf` | Pure-Go Markdown → PDF: goldmark parses the Markdown and a small layout engine draws it with fpdf (A4, page numbers, PDF outline, tables, code, images). Embedded DejaVu fonts (`internal/pdf/fonts`, free license). Large images are shrunk to keep memory low. |
+| `internal/site` | Offline website (Mermaid 12.1.0 is bundled for diagrams, see `internal/site/assets/mermaid`): scans the export folder (order from `Table of Contents.md`), renders each page with goldmark (raw HTML is shown as text, never run), and writes one `.html` per page plus a shared `_viewer/` with CSS, plain JavaScript, the page tree and a search index. Works from `file://` with no server. |
 | `internal/tui` | The step-by-step interface (Bubble Tea). |
 | `internal/fakeconfluence` | In-memory Cloud and Server APIs used by the tests. |

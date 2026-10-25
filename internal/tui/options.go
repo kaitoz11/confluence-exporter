@@ -15,6 +15,7 @@ import (
 const (
 	optFolder = iota
 	optAttachments
+	optWebsite
 	optPDF
 	optSpeed
 	optStart
@@ -24,6 +25,7 @@ const (
 type optionsModel struct {
 	folder      textinput.Model
 	attachments bool
+	website     bool
 	pdf         bool
 	speed       export.Speed
 	focus       int
@@ -37,9 +39,12 @@ func newOptions(cfg config.Config, space confluence.Space) optionsModel {
 	in.CharLimit = 1024
 	in.Width = 60
 	in.Prompt = ""
-	o := optionsModel{folder: in, attachments: true, pdf: true, focus: optStart, space: space}
+	o := optionsModel{folder: in, attachments: true, website: true, pdf: true, focus: optStart, space: space}
 	if cfg.Attachments != nil {
 		o.attachments = *cfg.Attachments
+	}
+	if cfg.Website != nil {
+		o.website = *cfg.Website
 	}
 	if cfg.PDF != nil {
 		o.pdf = *cfg.PDF
@@ -86,6 +91,9 @@ func (m Model) updateOptions(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch o.focus {
 			case optAttachments:
 				o.attachments = !o.attachments
+				return m, nil
+			case optWebsite:
+				o.website = !o.website
 				return m, nil
 			case optPDF:
 				o.pdf = !o.pdf
@@ -144,6 +152,7 @@ func (m Model) viewOptions() string {
 	b.WriteString(hintIndent + sMuted.Render("Tip: drag a folder into this window to paste its path") + "\n\n")
 
 	b.WriteString(checkbox("Download attachments (images and files)", o.attachments, o.focus == optAttachments) + "\n")
+	b.WriteString(checkbox("Create a website to browse the space offline (index.html)", o.website, o.focus == optWebsite) + "\n")
 	b.WriteString(checkbox("Also create a PDF for every page", o.pdf, o.focus == optPDF) + "\n")
 	b.WriteString(speedRow(o.speed, o.focus == optSpeed) + "\n\n")
 

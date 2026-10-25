@@ -30,6 +30,8 @@ Usage:
   confluence-exporter              start the interactive app
   confluence-exporter [--speed gentle|normal|fast] pdf <folder>
                                    convert every .md file under <folder> to PDF
+  confluence-exporter html <folder>
+                                   build a browsable offline website (index.html) for <folder>
   confluence-exporter --version    print the version
 
 Environment (optional, pre-fills the sign-in form):
@@ -50,6 +52,8 @@ Environment (optional, pre-fills the sign-in form):
 		return
 	case flag.NArg() == 2 && flag.Arg(0) == "pdf":
 		os.Exit(runPDF(config.ExpandPath(flag.Arg(1)), export.ParseSpeed(capitalize(*speed))))
+	case flag.NArg() == 2 && flag.Arg(0) == "html":
+		os.Exit(runSite(config.ExpandPath(flag.Arg(1))))
 	case flag.NArg() > 0:
 		flag.Usage()
 		os.Exit(2)
@@ -79,6 +83,25 @@ func runPDF(dir string, speed export.Speed) int {
 		}
 	})
 	fmt.Printf("Created %d PDF files in %s\n", res.PDFs, res.Duration.Round(1e9))
+	if len(res.Warnings) > 0 || res.Canceled {
+		return 1
+	}
+	return 0
+}
+
+// runSite is the non-interactive website build, for scripts.
+func runSite(dir string) int {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	res := export.BuildFolderSite(ctx, dir, func(e export.Event) {
+		if e.Warning != "" {
+			fmt.Fprintln(os.Stderr, "warning:", e.Warning)
+		}
+	})
+	if res.Website == "" {
+		return 1
+	}
+	fmt.Printf("Website ready: %s\n", res.Website)
 	if len(res.Warnings) > 0 || res.Canceled {
 		return 1
 	}

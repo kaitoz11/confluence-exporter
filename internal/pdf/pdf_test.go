@@ -66,6 +66,7 @@ func tricky(t *testing.T, dir string) string {
 	b.WriteString("- level 1\n  - level 2\n    - level 3 with a long line " + strings.Repeat("word ", 40) + "\n- back\n\n")
 	b.WriteString("3. three\n4. four\n\n- [x] done\n- [ ] todo\n\n")
 	b.WriteString("> **Note**\n>\n> Quoted text that is long enough to wrap " + strings.Repeat("quote ", 30) + "\n\n")
+	b.WriteString("Inline `mã nguồn: lời giải` code and a code block in Vietnamese:\n\n```\n// Hỏi nhóm: Đã có câu trả lời?\nflowchart TD\n```\n\n")
 	b.WriteString("```go\nfunc main() {\n\tfmt.Println(\"" + strings.Repeat("x", 300) + "\")\n}\n```\n\n")
 	b.WriteString("```\n" + strings.Repeat("line of code\n", 120) + "```\n\n")
 	b.WriteString("| A | B | C | D | E | F |\n|---|:-:|--:|---|---|---|\n")

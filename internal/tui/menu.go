@@ -18,6 +18,7 @@ type menuModel struct {
 
 const (
 	menuExport = iota
+	menuSite
 	menuPDF
 	menuHelp
 	menuQuit
@@ -25,7 +26,8 @@ const (
 
 func newMenu() menuModel {
 	return menuModel{items: []menuItem{
-		{"Export a Confluence space", "Pages become Markdown files in folders that mirror the space, plus attachments and PDFs"},
+		{"Export a Confluence space", "Save every page as Markdown, with attachments, a browsable website and PDFs"},
+		{"Create a website from Markdown files", "Browse an export like Confluence, offline: page tree, search, images and files"},
 		{"Convert Markdown files to PDF", "Turn a folder of .md files (for example a previous export) into PDF files"},
 		{"Help: getting an API token", "Step-by-step instructions for Confluence Cloud and Server / Data Center"},
 		{"Quit", ""},
@@ -42,7 +44,7 @@ func (m Model) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.menu.cursor = (m.menu.cursor + len(m.menu.items) - 1) % len(m.menu.items)
 	case "down", "j", "tab":
 		m.menu.cursor = (m.menu.cursor + 1) % len(m.menu.items)
-	case "1", "2", "3", "4":
+	case "1", "2", "3", "4", "5":
 		m.menu.cursor = int(k.String()[0] - '1')
 		return m.chooseMenu()
 	case "enter", " ":
@@ -59,8 +61,12 @@ func (m Model) chooseMenu() (tea.Model, tea.Cmd) {
 		m.screen = scrLogin
 		cmd := m.login.focusCmd()
 		return m, cmd
-	case menuPDF:
-		m.pdfPick = newPDFPick(m.cfg)
+	case menuPDF, menuSite:
+		mode := pickPDF
+		if m.menu.cursor == menuSite {
+			mode = pickSite
+		}
+		m.pdfPick = newPDFPick(m.cfg, mode)
 		m.screen = scrPDFPick
 		return m, nil
 	case menuHelp:
@@ -135,12 +141,15 @@ func helpLines() []string {
 		t("  • To paste in the terminal use Cmd+V (Mac) or Ctrl+Shift+V / right-click (Windows, Linux)."),
 		t("  • Running the same export again updates the files and skips attachments already downloaded."),
 		t("  • Computer feels slow? Choose the Gentle speed: it uses less memory and processor."),
+		t("  • Open index.html in the export to browse it like Confluence, even without internet."),
 		"",
 		h("What you get"),
 		t("  <Space name>/"),
+		t("    index.html              ") + mu("← open this to browse the space in your web browser"),
 		t("    Table of Contents.md"),
 		t("    Home page/"),
 		t("      Home page.md          ") + mu("← the page as Markdown"),
+		t("      Home page.html        ") + mu("← page of the website"),
 		t("      Home page.pdf         ") + mu("← optional PDF version"),
 		t("      _attachments/         ") + mu("← images and files of this page"),
 		t("      Child page/           ") + mu("← sub-pages, nested exactly like in Confluence"),

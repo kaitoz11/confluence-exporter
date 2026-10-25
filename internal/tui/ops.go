@@ -89,6 +89,11 @@ func (m Model) handleOp(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case exportDoneMsg:
 		m.events, m.cancel = nil, nil
+		if r := export.Result(msg); !m.run.pdfOnly && r.Pages > 0 {
+			// Offer this export first on the website and PDF screens.
+			m.cfg.LastPDFDir = r.Root
+			_ = config.Save(m.cfg)
+		}
 		m.done = newDoneModel(export.Result(msg), m.run)
 		m.screen = scrDone
 		return m, nil
@@ -147,11 +152,13 @@ func (m *Model) startExport() tea.Cmd {
 		OutputDir:   m.options.outputDir(),
 		Attachments: m.options.attachments,
 		PDF:         m.options.pdf,
+		Website:     m.options.website,
 		Speed:       m.options.speed,
 	}
 	m.cfg.OutputDir = opts.OutputDir
 	m.cfg.Attachments = &opts.Attachments
 	m.cfg.PDF = &opts.PDF
+	m.cfg.Website = &opts.Website
 	m.cfg.Speed = opts.Speed.String()
 	_ = config.Save(m.cfg)
 
@@ -162,6 +169,18 @@ func (m *Model) startExport() tea.Cmd {
 	client, tree := m.client, m.tree
 	return m.startOp(func(ctx context.Context, send func(tea.Msg)) tea.Msg {
 		res := export.Run(ctx, client, tree, opts, func(e export.Event) { send(exportEventMsg(e)) })
+		return exportDoneMsg(res)
+	})
+}
+
+func (m *Model) startSite(dir string) tea.Cmd {
+	m.cfg.LastPDFDir = dir
+	_ = config.Save(m.cfg)
+	m.run = newRunModel("Creating the website", true)
+	m.run.target = dir
+	m.screen = scrRunning
+	return m.startOp(func(ctx context.Context, send func(tea.Msg)) tea.Msg {
+		res := export.BuildFolderSite(ctx, dir, func(e export.Event) { send(exportEventMsg(e)) })
 		return exportDoneMsg(res)
 	})
 }

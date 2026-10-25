@@ -7,6 +7,12 @@ VERSION="${1:-dev}"
 OUT="${OUT:-dist}"
 NAME="confluence-exporter"
 
+# The version ends up inside the binary; accept only plain version text.
+if [[ ! "$VERSION" =~ ^[A-Za-z0-9._+-]+$ ]]; then
+  echo "Invalid version: $VERSION" >&2
+  exit 1
+fi
+
 # GOOS GOARCH file-suffix
 TARGETS=(
   "darwin  arm64 macos-apple-silicon"

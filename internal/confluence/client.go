@@ -280,22 +280,25 @@ func (h *httpClient) download(ctx context.Context, rawURL string, w io.Writer) e
 
 type retryAfterError struct {
 	*APIError
-	after time.Duration
+	after time.Duration // -1 when the server did not say
 }
+
+// maxRetryAfter caps the wait a server can ask for.
+const maxRetryAfter = 5 * time.Minute
 
 func retryAfter(resp *http.Response) time.Duration {
 	if s := resp.Header.Get("Retry-After"); s != "" {
-		if n, err := strconv.Atoi(s); err == nil {
-			return time.Duration(n) * time.Second
+		if n, err := strconv.Atoi(s); err == nil && n >= 0 {
+			return min(time.Duration(n)*time.Second, maxRetryAfter)
 		}
 	}
-	return 0
+	return -1
 }
 
 func backoff(attempt int, lastErr error) time.Duration {
 	var ra *retryAfterError
-	if errors.As(lastErr, &ra) && ra.after > 0 {
-		return ra.after
+	if errors.As(lastErr, &ra) && ra.after >= 0 {
+		return ra.after // "Retry-After: 0" means retry now
 	}
 	d := time.Duration(1<<attempt) * 500 * time.Millisecond
 	return d + time.Duration(rand.Int63n(int64(d/2)+1))

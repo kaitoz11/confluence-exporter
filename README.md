@@ -135,12 +135,16 @@ make dist     # single-file binaries for macOS, Windows and Linux (x64 + ARM64) 
 
 ### Releases (GitHub Actions)
 
-- **CI** (`.github/workflows/ci.yml`): every pull request and branch is tested on Linux, macOS and Windows,
-  and all binaries are built and attached to the run as an artifact.
-- **Release** (`.github/workflows/release.yml`): every push to `main` is tested, built for all six platforms and
-  published automatically as a GitHub release named `v<VERSION>.<run number>` (for example `v1.0.12`), with a
-  `SHA256SUMS.txt`. Pushing a tag such as `v2.0.0` publishes that exact version instead. Changes to Markdown
-  files alone do not trigger a release. To start a new series, edit the `VERSION` file (for example `1.1`).
+- **CI** (`.github/workflows/ci.yml`): every pull request gets one Linux job that checks formatting, runs `go vet`
+  and the tests, and builds all six binaries. Tests on Windows and macOS (2x and 10x the cost of Linux minutes)
+  only run on demand: Actions tab → CI → Run workflow → tick "Also run the tests on Windows and macOS".
+- **Release** (`.github/workflows/release.yml`): every push to `main` runs one Linux job that tests, builds and
+  publishes a GitHub release named `v<VERSION>.<run number>` (for example `v1.0.12`), with a `SHA256SUMS.txt`.
+  Pushing a tag such as `v2.0.0` publishes that exact version instead. Changes to Markdown files or to `.github/`
+  alone do not trigger a release. To start a new series, edit the `VERSION` file (for example `1.1`).
+- **Dependabot** proposes at most one grouped update per month for the actions and for the Go modules, and only
+  for releases that are at least 14 days old.
+- Actions are pinned to exact commits, and every job gets the smallest permissions it needs.
 
 ### How it works
 

@@ -275,6 +275,9 @@ func (m Model) footer() string {
 	case scrOptions:
 		return keyHelp("tab/↓", "next", "space", "tick", "←/→", "speed", "enter", "start", "esc", "back")
 	case scrRunning:
+		if m.run.throttle != nil {
+			return keyHelp("←/→", "change speed", "esc", "stop")
+		}
 		return keyHelp("esc", "stop")
 	case scrDone:
 		return m.done.footer()

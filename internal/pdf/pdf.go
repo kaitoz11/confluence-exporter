@@ -23,6 +23,17 @@ type Options struct {
 	Workers int
 	// Pause is a rest taken by each worker between two files.
 	Pause time.Duration
+	// Throttle, when set, can change both of the above while a batch runs:
+	// Workers is then the most that can ever run, and each file waits for
+	// a free slot.
+	Throttle Throttle
+}
+
+// Throttle is a live limit on how many files are converted at once.
+type Throttle interface {
+	Acquire(ctx context.Context) error
+	Release()
+	Pause() time.Duration
 }
 
 // Converter turns Markdown files into PDF files.
@@ -86,7 +97,15 @@ func (c *Converter) ConvertAll(ctx context.Context, files []string, report func(
 	for i := 0; i < c.opts.Workers; i++ {
 		wg.Go(func() {
 			for f := range jobs {
+				if t := c.opts.Throttle; t != nil {
+					if t.Acquire(ctx) != nil {
+						continue // canceled: drain the remaining jobs
+					}
+				}
 				_, err := c.Convert(f)
+				if t := c.opts.Throttle; t != nil {
+					t.Release()
+				}
 				mu.Lock()
 				done++
 				if err != nil {
@@ -101,9 +120,13 @@ func (c *Converter) ConvertAll(ctx context.Context, files []string, report func(
 				}
 				// Give memory back to the system between big documents.
 				debug.FreeOSMemory()
-				if c.opts.Pause > 0 {
+				pause := c.opts.Pause
+				if t := c.opts.Throttle; t != nil {
+					pause = t.Pause()
+				}
+				if pause > 0 {
 					select {
-					case <-time.After(c.opts.Pause):
+					case <-time.After(pause):
 					case <-ctx.Done():
 					}
 				}

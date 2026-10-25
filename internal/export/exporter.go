@@ -24,6 +24,16 @@ type Options struct {
 	PDF         bool
 	Website     bool // also build a browsable offline website (index.html)
 	Speed       Speed
+	// Throttle, when set, lets the speed change while the export runs
+	// (Speed is then ignored).
+	Throttle *Throttle
+}
+
+func (o Options) throttle() *Throttle {
+	if o.Throttle != nil {
+		return o.Throttle
+	}
+	return NewThrottle(o.Speed)
 }
 
 // Phase names shown to the user.
@@ -85,9 +95,8 @@ func Run(ctx context.Context, client confluence.Client, tree *Tree, opts Options
 	}
 
 	nodes := tree.Selected()
-	th := opts.Speed.throttle()
-	workers := th.downloads
-	client.SetRateLimit(th.requestRate)
+	speed := opts.throttle()
+	speed.bindRate(client.SetRateLimit)
 
 	var (
 		wg      sync.WaitGroup
@@ -96,10 +105,16 @@ func Run(ctx context.Context, client confluence.Client, tree *Tree, opts Options
 		jobs    = make(chan *Node)
 	)
 	emit(Event{Phase: PhasePages, Total: len(nodes)})
-	for i := 0; i < workers; i++ {
+	// Start enough workers for the fastest speed; the throttle decides how
+	// many of them work at the same time.
+	for i := 0; i < maxDownloads(); i++ {
 		wg.Go(func() {
 			for n := range jobs {
+				if speed.downloads.acquire(ctx) != nil {
+					continue // canceled: drain the remaining jobs
+				}
 				r := exportNode(ctx, client, tree, n, root, opts, warn)
+				speed.downloads.release()
 				mu.Lock()
 				done++
 				if r.written {
@@ -143,7 +158,7 @@ feed:
 
 	if opts.PDF && ctx.Err() == nil && len(mdFiles) > 0 {
 		emit(Event{Phase: PhasePDF, Total: len(mdFiles)})
-		res.PDFs = convertPDFs(ctx, root, mdFiles, opts.Speed, emit, warn)
+		res.PDFs = convertPDFs(ctx, root, mdFiles, speed, emit, warn)
 	}
 
 	res.Canceled = ctx.Err() != nil
@@ -153,7 +168,7 @@ feed:
 
 // ConvertFolderToPDF converts every Markdown file under root. It is used both
 // after an export and on its own from the main menu.
-func ConvertFolderToPDF(ctx context.Context, root string, speed Speed, emit func(Event)) Result {
+func ConvertFolderToPDF(ctx context.Context, root string, speed *Throttle, emit func(Event)) Result {
 	start := time.Now()
 	res := Result{Root: root}
 	warn := func(msg string) {
@@ -243,9 +258,8 @@ func siteTitle(root, title string) string {
 	return filepath.Base(root)
 }
 
-func convertPDFs(ctx context.Context, root string, files []string, speed Speed, emit func(Event), warn func(string)) int {
-	th := speed.throttle()
-	conv := pdf.New(pdf.Options{Workers: th.pdfWorkers, Pause: th.pdfPause})
+func convertPDFs(ctx context.Context, root string, files []string, speed *Throttle, emit func(Event), warn func(string)) int {
+	conv := pdf.New(pdf.Options{Workers: maxPDFWorkers(), Throttle: pdfThrottle{speed}})
 	n, _ := conv.ConvertAll(ctx, files, func(p pdf.Progress) {
 		msg := "✓ " + filepath.Base(pdf.PDFPath(p.File))
 		if p.Err != nil {

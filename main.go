@@ -74,7 +74,7 @@ Environment (optional, pre-fills the sign-in form):
 func runPDF(dir string, speed export.Speed) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	res := export.ConvertFolderToPDF(ctx, dir, speed, func(e export.Event) {
+	res := export.ConvertFolderToPDF(ctx, dir, export.NewThrottle(speed), func(e export.Event) {
 		switch {
 		case e.Warning != "":
 			fmt.Fprintln(os.Stderr, "warning:", e.Warning)

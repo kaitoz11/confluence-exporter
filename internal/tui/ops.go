@@ -153,18 +153,19 @@ func (m *Model) startExport() tea.Cmd {
 		Attachments: m.options.attachments,
 		PDF:         m.options.pdf,
 		Website:     m.options.website,
-		Speed:       m.options.speed,
+		Throttle:    export.NewThrottle(m.options.speed),
 	}
 	m.cfg.OutputDir = opts.OutputDir
 	m.cfg.Attachments = &opts.Attachments
 	m.cfg.PDF = &opts.PDF
 	m.cfg.Website = &opts.Website
-	m.cfg.Speed = opts.Speed.String()
+	m.cfg.Speed = m.options.speed.String()
 	_ = config.Save(m.cfg)
 
 	sel, _ := m.tree.Counts()
 	m.run = newRunModel("Exporting "+m.space.Name, false)
 	m.run.target = fmt.Sprintf("%d pages", sel)
+	m.run.throttle = opts.Throttle
 	m.screen = scrRunning
 	client, tree := m.client, m.tree
 	return m.startOp(func(ctx context.Context, send func(tea.Msg)) tea.Msg {
@@ -191,9 +192,11 @@ func (m *Model) startPDF(dir string, speed export.Speed) tea.Cmd {
 	_ = config.Save(m.cfg)
 	m.run = newRunModel("Converting Markdown to PDF", true)
 	m.run.target = dir
+	throttle := export.NewThrottle(speed)
+	m.run.throttle = throttle
 	m.screen = scrRunning
 	return m.startOp(func(ctx context.Context, send func(tea.Msg)) tea.Msg {
-		res := export.ConvertFolderToPDF(ctx, dir, speed, func(e export.Event) { send(exportEventMsg(e)) })
+		res := export.ConvertFolderToPDF(ctx, dir, throttle, func(e export.Event) { send(exportEventMsg(e)) })
 		return exportDoneMsg(res)
 	})
 }

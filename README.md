@@ -52,6 +52,8 @@ anything:
 - **Search** box (press `/`) that looks in titles and page text and ignores accents: `huong dan` finds *Hướng dẫn*
 - **Breadcrumbs**, **Previous / Next** buttons and an **On this page** outline for long pages
 - **Images** open larger when clicked; **attachments** are shown as file cards you can click to open
+- **Diagrams** written in [Mermaid](https://mermaid.js.org) (`flowchart TD`, sequence diagrams, …) are drawn,
+  with their source one click away. PDFs show the diagram source with a note instead.
 - **Open in Confluence** button on each page, light and dark mode, and a phone-friendly layout
 
 For an earlier export, choose **Create a website from Markdown files** in the main menu, or press **w** on the
@@ -147,6 +149,6 @@ make dist     # single-file binaries for macOS, Windows and Linux (x64 + ARM64) 
 | `internal/confluence` | REST client. Cloud uses API v2 (pages, folders, attachments, cursor pagination). Server/DC uses API v1. Retries on rate limits (429) and server errors. |
 | `internal/export` | Builds the page tree, picks safe file names, converts each page's `export_view` HTML to Markdown, rewrites links to attachments and other pages into relative paths, and downloads attachments with 4 parallel workers. |
 | `internal/pdf` | Pure-Go Markdown → PDF: goldmark parses the Markdown and a small layout engine draws it with fpdf (A4, page numbers, PDF outline, tables, code, images). Embedded DejaVu fonts (`internal/pdf/fonts`, free license). Large images are shrunk to keep memory low. |
-| `internal/site` | Offline website: scans the export folder (order from `Table of Contents.md`), renders each page with goldmark (raw HTML is shown as text, never run), and writes one `.html` per page plus a shared `_viewer/` with CSS, plain JavaScript, the page tree and a search index. Works from `file://` with no server. |
+| `internal/site` | Offline website (Mermaid 12.1.0 is bundled for diagrams, see `internal/site/assets/mermaid`): scans the export folder (order from `Table of Contents.md`), renders each page with goldmark (raw HTML is shown as text, never run), and writes one `.html` per page plus a shared `_viewer/` with CSS, plain JavaScript, the page tree and a search index. Works from `file://` with no server. |
 | `internal/tui` | The step-by-step interface (Bubble Tea). |
 | `internal/fakeconfluence` | In-memory Cloud and Server APIs used by the tests. |

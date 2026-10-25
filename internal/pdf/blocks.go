@@ -33,18 +33,23 @@ func (r *renderer) codeBlock(n ast.Node) {
 			lines = append(lines, line{h: lh})
 			continue
 		}
-		var part []rune
-		pw := 0.0
+		cur := line{h: lh}
 		for _, c := range text {
-			cw := r.measure(string(c), st)
-			if pw+cw > width && len(part) > 0 {
-				lines = append(lines, line{pieces: []piece{{text: string(part), st: st, w: pw}}, w: pw, h: lh})
-				part, pw = nil, 0
+			cst := monoFallback(c, st)
+			cw := r.measure(string(c), cst)
+			if cur.w+cw > width && len(cur.pieces) > 0 {
+				lines = append(lines, cur)
+				cur = line{h: lh}
 			}
-			part = append(part, c)
-			pw += cw
+			if n := len(cur.pieces); n > 0 && cur.pieces[n-1].st == cst {
+				cur.pieces[n-1].text += string(c)
+				cur.pieces[n-1].w += cw
+			} else {
+				cur.pieces = append(cur.pieces, piece{text: string(c), st: cst, w: cw})
+			}
+			cur.w += cw
 		}
-		lines = append(lines, line{pieces: []piece{{text: string(part), st: st, w: pw}}, w: pw, h: lh})
+		lines = append(lines, cur)
 	}
 
 	bg := func(y, h float64) {
@@ -52,6 +57,12 @@ func (r *renderer) codeBlock(n ast.Node) {
 		r.pdf.Rect(r.left, y, r.right-r.left, h, "F")
 	}
 	r.ensure(lh*2 + 2*pad)
+	if fc, ok := n.(*ast.FencedCodeBlock); ok && string(fc.Language(r.src)) == "mermaid" {
+		// Diagrams are drawn only in the website; say so above the source.
+		note := style{italic: true, size: bodySize * 0.85, color: colMuted}
+		r.drawLines(r.breakLines([]span{{text: "Diagram (Mermaid) — open the website version of this page to see it drawn.", st: note}}, r.right-r.left), r.left, r.right-r.left, "L")
+		r.space(1)
+	}
 	bg(r.pdf.GetY(), pad)
 	r.pdf.SetY(r.pdf.GetY() + pad)
 	for _, ln := range lines {
@@ -60,10 +71,12 @@ func (r *renderer) codeBlock(n ast.Node) {
 		}
 		y := r.pdf.GetY()
 		bg(y, lh)
+		x := r.left + pad
 		for _, p := range ln.pieces {
 			r.setStyle(p.st)
-			r.pdf.SetXY(r.left+pad, y)
+			r.pdf.SetXY(x, y)
 			r.pdf.CellFormat(p.w, lh, p.text, "", 0, "L", false, 0, "")
+			x += p.w
 		}
 		r.pdf.SetY(y + lh)
 	}

@@ -160,6 +160,7 @@ func exportAndCheck(t *testing.T, client confluence.Client, wantUser string, clo
 	}
 
 	checkWebsite(t, res, cloud)
+	checkDiagrams(t, res, inside)
 
 	// Running again must reuse the downloaded attachments and succeed.
 	res2 := Run(ctx, client, tree, Options{OutputDir: out, Attachments: true, Speed: SpeedGentle}, func(Event) {})
@@ -267,5 +268,28 @@ func checkWebsite(t *testing.T, res Result, cloud bool) {
 	}
 	if !strings.Contains(read("_viewer/search.js"), "Tiếng Việt") {
 		t.Errorf("search index lacks page text")
+	}
+}
+
+func checkDiagrams(t *testing.T, res Result, insideMD string) {
+	t.Helper()
+	for _, rel := range []string{"Home/FAQ - Q-A/FAQ - Q-A.md", insideMD} {
+		md, _ := os.ReadFile(filepath.Join(res.Root, filepath.FromSlash(rel)))
+		if !strings.Contains(string(md), "```mermaid\n") {
+			t.Errorf("%s has no mermaid block:\n%s", rel, md)
+		}
+	}
+	faq, _ := os.ReadFile(filepath.Join(res.Root, "Home", "FAQ - Q-A", "FAQ - Q-A.md"))
+	if !strings.Contains(string(faq), "A[Câu hỏi] --> B{Đã có câu trả lời?}") {
+		t.Errorf("diagram source not kept verbatim:\n%s", faq)
+	}
+	html, _ := os.ReadFile(filepath.Join(res.Root, "Home", "FAQ - Q-A", "FAQ - Q-A.html"))
+	if !strings.Contains(string(html), `<code class="language-mermaid">flowchart TD`) {
+		t.Errorf("website page lacks the diagram block")
+	}
+	// Only check the size: opening a fresh copy can take seconds while the
+	// system's malware scanner inspects the JavaScript.
+	if fi, err := os.Stat(filepath.Join(res.Root, "_viewer", "mermaid.min.js")); err != nil || fi.Size() < 1<<20 {
+		t.Errorf("mermaid library not written: %v", err)
 	}
 }

@@ -82,6 +82,15 @@ func (c *coverage) has(r rune) bool {
 	return v
 }
 
+// monoFallback switches one character of monospace text to the sans font
+// when only that font can draw it.
+func monoFallback(r rune, st style) style {
+	if st.mono && !coverageFor(familyMono).has(r) {
+		st.mono = false
+	}
+	return st
+}
+
 // cleanText makes text safe to draw with the family's font.
 func cleanText(s, family string) string {
 	cov := coverageFor(family)
@@ -97,7 +106,9 @@ func cleanText(s, family string) string {
 			// zero-width characters and the emoji variation selector
 		case unicode.IsControl(r), unicode.Is(unicode.Mn, r) && !cov.has(r):
 			// control characters and combining marks the font cannot draw
-		case cov.has(r):
+		case cov.has(r), family == familyMono && coverageFor(familySans).has(r):
+			// Monospace text borrows letters the mono font lacks (some
+			// Vietnamese ones) from the sans font; see monoFallback.
 			b.WriteRune(r)
 		default:
 			// Emoji, CJK and other scripts the font lacks.

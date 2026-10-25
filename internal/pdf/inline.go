@@ -106,6 +106,25 @@ func (r *renderer) spans(n ast.Node, st style) []span {
 	return out
 }
 
+type styledRun struct {
+	text string
+	st   style
+}
+
+// monoRuns splits monospace text where the font has to change.
+func monoRuns(s string, st style) []styledRun {
+	var runs []styledRun
+	for _, c := range s {
+		cst := monoFallback(c, st)
+		if n := len(runs); n > 0 && runs[n-1].st == cst {
+			runs[n-1].text += string(c)
+		} else {
+			runs = append(runs, styledRun{text: string(c), st: cst})
+		}
+	}
+	return runs
+}
+
 // linkTarget points links between exported pages at their PDFs.
 func linkTarget(dest string) string {
 	if m := mdLinkRe.FindStringSubmatch(dest); m != nil {
@@ -227,6 +246,27 @@ func (r *renderer) breakLines(spans []span, width float64) []line {
 				continue
 			}
 			tok = cleanText(tok, fam)
+			if s.st.mono && tok != " " {
+				// Inline code: draw letters the mono font lacks with the sans
+				// font, one run at a time. Words wider than a line take the
+				// character-wrapping path below instead.
+				runs := monoRuns(tok, s.st)
+				widths := make([]float64, len(runs))
+				total := 0.0
+				for i, run := range runs {
+					widths[i] = r.measure(run.text, run.st)
+					total += widths[i]
+				}
+				if total <= width {
+					if cur.w+total > width && len(cur.pieces) > 0 {
+						push()
+					}
+					for i, run := range runs {
+						add(run.text, run.st, widths[i])
+					}
+					continue
+				}
+			}
 			w := r.measure(tok, s.st)
 			if cur.w+w <= width {
 				add(tok, s.st, w)

@@ -44,7 +44,8 @@ body {
 }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
-svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+/* Interface icons only: diagrams are SVG too and must keep their own size. */
+:where(.search, .icon-btn, .twisty) svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .skip { position: absolute; left: -999px; }
 .skip:focus { left: 8px; top: 8px; z-index: 50; background: var(--bg); padding: 6px 10px; border-radius: 6px; }
 
@@ -173,6 +174,15 @@ li.open > .row .twisty svg { transform: rotate(90deg); }
 .content li + li { margin-top: .25em; }
 .content input[type=checkbox] { margin-right: 6px; }
 
+/* Mermaid diagrams */
+.content figure.diagram { margin: 1.2em 0; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); }
+.diagram-svg { overflow-x: auto; text-align: center; cursor: zoom-in; min-height: 24px; }
+.diagram-svg svg { max-width: 100%; height: auto; }
+.diagram-error { color: var(--code); font-size: 14px; margin: 0; cursor: auto; }
+.diagram-source summary { margin-top: 10px; color: var(--muted); font-size: 13px; cursor: pointer; width: fit-content; }
+.diagram-source summary:hover { color: var(--text); }
+.diagram-source pre { margin: 8px 0 0; }
+
 /* Attachments become file cards */
 .content ul.attachments { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
 .content ul.attachments li { margin: 0; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted); font-size: 13px; }
@@ -202,6 +212,7 @@ li.open > .row .twisty svg { transform: rotate(90deg); }
 .lightbox { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 32px; background: rgba(9, 30, 66, .82); cursor: zoom-out; }
 .lightbox[hidden] { display: none; }
 .lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; box-shadow: var(--shadow); background: #fff; }
+.lightbox.is-diagram img { width: min(90vw, 1400px); background: var(--bg); padding: 16px; }
 .lightbox .icon-btn { position: absolute; top: 16px; right: 16px; }
 
 /* Narrower screens */

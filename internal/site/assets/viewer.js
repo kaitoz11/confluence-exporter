@@ -220,15 +220,64 @@
     });
   }
 
+  // ---- Mermaid diagrams ------------------------------------------------------
+  // ```mermaid blocks are drawn by the bundled Mermaid library, loaded only on
+  // pages that have a diagram. The source stays available under the drawing.
+  var diagrams = content ? content.querySelectorAll("pre > code.language-mermaid") : [];
+  if (diagrams.length) {
+    var lib = document.createElement("script");
+    lib.src = page.root + "_viewer/mermaid.min.js";
+    lib.onload = drawDiagrams;
+    document.head.appendChild(lib);
+  }
+
+  function drawDiagrams() {
+    var dark = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;
+    window.mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict", // no scripts or clickable callbacks in diagrams
+      theme: dark ? "dark" : "default",
+      fontFamily: getComputedStyle(document.body).fontFamily
+    });
+    Array.prototype.forEach.call(diagrams, function (code, i) {
+      var pre = code.parentNode;
+      var figure = el("figure", "diagram");
+      var drawing = el("div", "diagram-svg");
+      drawing.title = "Click to enlarge";
+      var source = el("details", "diagram-source");
+      source.appendChild(el("summary", null, "Diagram source"));
+      pre.parentNode.insertBefore(figure, pre);
+      figure.appendChild(drawing);
+      figure.appendChild(source);
+      source.appendChild(pre);
+      window.mermaid.render("diagram-" + i, code.textContent).then(function (res) {
+        drawing.innerHTML = res.svg;
+      }).catch(function (err) {
+        drawing.appendChild(el("p", "diagram-error", "This diagram could not be drawn: " + ((err && err.message) || err)));
+        drawing.title = "";
+        source.open = true;
+      });
+    });
+  }
+
   // ---- Image viewer ----------------------------------------------------------
   var box = $("lightbox");
   function closeLightbox() { if (box) box.hidden = true; }
+  function showLightbox(src, alt, diagram) {
+    box.classList.toggle("is-diagram", !!diagram);
+    box.querySelector("img").src = src;
+    box.querySelector("img").alt = alt || "";
+    box.hidden = false;
+  }
   if (box && content) {
     content.addEventListener("click", function (e) {
+      var svg = e.target.closest(".diagram-svg svg");
+      if (svg) {
+        showLightbox("data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(svg)), "Diagram", true);
+        return;
+      }
       if (e.target.tagName !== "IMG" || e.target.closest("a")) return;
-      box.querySelector("img").src = e.target.src;
-      box.querySelector("img").alt = e.target.alt;
-      box.hidden = false;
+      showLightbox(e.target.src, e.target.alt);
     });
     box.addEventListener("click", closeLightbox);
   }

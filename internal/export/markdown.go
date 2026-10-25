@@ -99,6 +99,22 @@ func cleanup(doc *goquery.Document) {
 		img.ReplaceWithHtml(escapeText(text))
 	})
 
+	// Mermaid diagrams keep their source as a ```mermaid block, which the
+	// website draws. Diagrams already drawn as SVG are left alone.
+	doc.Find("div.mermaid, pre.mermaid, code.mermaid").Each(func(_ int, m *goquery.Selection) {
+		if m.Find("svg").Length() > 0 {
+			return
+		}
+		src := strings.TrimSpace(m.Text())
+		if src == "" {
+			return
+		}
+		if m.Is("code") && m.Parent().Is("pre") {
+			m = m.Parent()
+		}
+		m.ReplaceWithHtml(`<pre><code class="language-mermaid">` + escapeText(src) + "</code></pre>")
+	})
+
 	// Code macro: keep the language so the fenced block is highlighted.
 	doc.Find("pre").Each(func(_ int, pre *goquery.Selection) {
 		if pre.Find("code").Length() > 0 {

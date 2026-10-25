@@ -1,11 +1,14 @@
 package site
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	_ "embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -26,7 +29,43 @@ var (
 	viewerJS []byte
 	//go:embed assets/page.html
 	pageHTML string
+	// Mermaid draws ```mermaid diagrams in the browser. It is stored
+	// compressed and only copied into exports that contain a diagram.
+	//go:embed assets/mermaid/mermaid.min.js.gz
+	mermaidGz []byte
+	//go:embed assets/mermaid/LICENSE
+	mermaidLicense []byte
 )
+
+// hasDiagram reports whether rendered page HTML contains a Mermaid block.
+func hasDiagram(body string) bool { return strings.Contains(body, `<code class="language-mermaid">`) }
+
+// writeMermaid adds (or removes) the diagram library in the viewer folder.
+func writeMermaid(viewer string, needed bool) error {
+	js := filepath.Join(viewer, "mermaid.min.js")
+	lic := filepath.Join(viewer, "mermaid-LICENSE.txt")
+	if !needed {
+		os.Remove(js)
+		os.Remove(lic)
+		return nil
+	}
+	zr, err := gzip.NewReader(bytes.NewReader(mermaidGz))
+	if err != nil {
+		return err
+	}
+	f, err := os.Create(js)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(f, zr); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return os.WriteFile(lic, mermaidLicense, 0o644)
+}
 
 var pageTmpl = template.Must(template.New("page").Funcs(template.FuncMap{
 	// initial is the first letter of the space name, for its badge.
@@ -114,6 +153,7 @@ func Build(ctx context.Context, root, title string, report func(Progress)) (stri
 
 	var errs []error
 	var search []searchItem
+	diagrams := false
 	built := time.Now().Format("2 January 2006")
 	for i, n := range pages {
 		if ctx.Err() != nil {
@@ -136,6 +176,7 @@ func Build(ctx context.Context, root, title string, report func(Progress)) (stri
 			if i+1 < len(pages) {
 				d.Next = &link{pages[i+1].Title, escapePath(pages[i+1].Rel)}
 			}
+			diagrams = diagrams || hasDiagram(r.body)
 			err = writePage(filepath.Join(root, filepath.FromSlash(n.Rel)), d)
 			search = append(search, searchItem{T: n.Title, H: escapePath(n.Rel), X: r.text})
 		}
@@ -148,6 +189,9 @@ func Build(ctx context.Context, root, title string, report func(Progress)) (stri
 	}
 	if err := writeJS(filepath.Join(viewer, "search.js"), "SEARCH", search); err != nil {
 		errs = append(errs, err)
+	}
+	if err := writeMermaid(viewer, diagrams); err != nil {
+		errs = append(errs, fmt.Errorf("diagrams: %w", err))
 	}
 
 	index := filepath.Join(root, IndexFile)

@@ -63,4 +63,8 @@ func TestBuildPlainFolder(t *testing.T) {
 	if strings.Contains(tree, "hidden") {
 		t.Errorf("_attachments must not be scanned")
 	}
+	// No diagrams in this folder: the 5 MB library must not be copied.
+	if _, err := os.Stat(filepath.Join(root, ViewerDir, "mermaid.min.js")); err == nil {
+		t.Errorf("mermaid.min.js written without any diagram")
+	}
 }

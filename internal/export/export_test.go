@@ -163,7 +163,7 @@ func exportAndCheck(t *testing.T, client confluence.Client, wantUser string, clo
 	checkDiagrams(t, res, inside)
 
 	// Running again must reuse the downloaded attachments and succeed.
-	res2 := Run(ctx, client, tree, Options{OutputDir: out, Attachments: true, Speed: SpeedGentle}, func(Event) {})
+	res2 := Run(ctx, client, tree, Options{OutputDir: out, Attachments: true, Speed: SpeedNormal}, func(Event) {})
 	if len(res2.Warnings) > 0 || res2.Pages != 5 {
 		t.Fatalf("second run = %+v", res2)
 	}

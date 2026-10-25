@@ -1,0 +1,24 @@
+# Keeps the pinned GitHub Actions and the Go modules up to date: at most one
+# grouped pull request per month for each. The cooldown skips releases
+# younger than 14 days, so a hijacked release is usually caught first.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 14
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 14
+    groups:
+      go-modules:
+        patterns: ['*']

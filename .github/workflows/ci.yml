@@ -1,0 +1,49 @@
+name: CI
+
+# Checks every pull request and every branch except main (main is checked by
+# the Release workflow, which then publishes).
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./...
+
+  build:
+    name: Build binaries
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build all platforms
+        run: scripts/build.sh "$(cat VERSION)-ci.${GITHUB_RUN_NUMBER}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: confluence-exporter-binaries
+          path: dist/
+          retention-days: 7

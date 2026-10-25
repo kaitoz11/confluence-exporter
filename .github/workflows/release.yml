@@ -1,0 +1,86 @@
+name: Release
+
+# Every change merged into main is tested, built for all platforms and
+# published as a GitHub release automatically.
+#   - push to main      -> version v<VERSION>.<run number>, e.g. v1.0.12
+#   - push a tag v*     -> that exact version, e.g. v2.0.0
+#   - manual run        -> same as a push to main
+# Edit the VERSION file to move to a new major/minor series.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./...
+
+  release:
+    name: Build and publish
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Choose version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="$GITHUB_REF_NAME"
+          else
+            version="v$(tr -d '[:space:]' < VERSION).${GITHUB_RUN_NUMBER}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Releasing $version"
+
+      - name: Build all platforms
+        run: scripts/build.sh "${{ steps.version.outputs.version }}"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cat > notes.md <<'NOTES'
+          ## Download
+
+          | Computer | File |
+          |----------|------|
+          | Mac with Apple chip (M1 and newer) | `confluence-exporter-macos-apple-silicon` |
+          | Mac with Intel chip | `confluence-exporter-macos-intel` |
+          | Windows (most PCs) | `confluence-exporter-windows-x64.exe` |
+          | Windows on ARM | `confluence-exporter-windows-arm64.exe` |
+          | Linux | `confluence-exporter-linux-x64` / `confluence-exporter-linux-arm64` |
+
+          See the README for how to start the app. `SHA256SUMS.txt` lets you verify the downloads.
+          NOTES
+          gh release create "$VERSION" dist/* \
+            --title "$VERSION" \
+            --target "$GITHUB_SHA" \
+            --notes-file notes.md \
+            --generate-notes

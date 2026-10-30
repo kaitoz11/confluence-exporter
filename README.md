@@ -29,7 +29,7 @@ Works with **Confluence Cloud** (`*.atlassian.net`) and **Confluence Server / Da
    | 2 Space | Pick the space. Press `/` to search. |
    | 3 Pages | Everything is ticked. Press **Space** to untick pages you don't want. |
    | 4 Options | Choose the folder, attachments, website and PDFs. |
-   | 5 Export | Watch the progress. When done, press **w** to open the website or **o** to open the folder. |
+   | 5 Export | Watch the progress (press `←`/`→` to change the speed at any time). When done, press **w** to open the website or **o** to open the folder. |
 
    Keys are always shown at the bottom of the screen. **Esc** goes back, **Ctrl+C** quits.
 
@@ -76,6 +76,10 @@ The **Speed** setting on the options screen (and on the PDF screen) keeps the co
 | Fast | no limit | 6 | up to 4 | a powerful computer and a quick export are needed |
 
 In tests, PDF creation used about 40 MB of memory on Gentle and about 80 MB on Fast.
+
+You can **change the speed while an export or PDF conversion is running**: press `←`/`→` (or `1`, `2`, `3`) on the
+progress screen. Speeding up starts waiting work immediately; slowing down lets the pages already downloading finish
+first. The last speed you choose is remembered for next time.
 
 ## What the export looks like
 

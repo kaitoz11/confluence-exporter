@@ -9,6 +9,8 @@ import (
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/kaitoz11/confluence-exporter/internal/config"
+
 	"github.com/kaitoz11/confluence-exporter/internal/export"
 )
 
@@ -33,6 +35,9 @@ type runModel struct {
 	bar         progress.Model
 	confirmQuit bool
 	stopping    bool
+	// throttle changes the speed while running; nil when speed does not
+	// apply (building the website).
+	throttle *export.Throttle
 }
 
 func newRunModel(title string, pdfOnly bool) runModel {
@@ -88,8 +93,27 @@ func (m Model) updateRunning(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
-	if k.String() == "esc" || k.String() == "q" {
+	switch k.String() {
+	case "esc", "q":
 		m.run.confirmQuit = true
+	case "left", "right", "1", "2", "3":
+		if t := m.run.throttle; t != nil && !m.run.stopping {
+			s := t.Speed()
+			switch k.String() {
+			case "left":
+				s = export.Speeds[max(int(s)-1, 0)]
+			case "right":
+				s = export.Speeds[min(int(s)+1, len(export.Speeds)-1)]
+			default:
+				s = export.Speeds[int(k.String()[0]-'1')]
+			}
+			if s != t.Speed() {
+				t.SetSpeed(s)
+				m.run.push(logLine{text: "⚙ Speed changed to " + s.String()})
+				m.cfg.Speed = s.String() // remembered for next time
+				_ = config.Save(m.cfg)
+			}
+		}
 	}
 	return m, nil
 }
@@ -115,7 +139,11 @@ func (m Model) viewRunning() string {
 	if r.warnings > 0 {
 		stats += sMuted.Render("  ·  ") + sWarn.Render(strconv.Itoa(r.warnings)+" warnings")
 	}
-	b.WriteString(stats + "\n\n")
+	b.WriteString(stats + "\n")
+	if t := r.throttle; t != nil {
+		b.WriteString("  " + liveSpeedRow(t.Speed()) + "\n")
+	}
+	b.WriteString("\n")
 
 	b.WriteString(sMuted.Render("  Recent activity") + "\n")
 	width := m.width - 8
@@ -136,6 +164,20 @@ func (m Model) viewRunning() string {
 		b.WriteString("\n  " + sWarn.Bold(true).Render("Stop now? Pages saved so far are kept.  (y = stop, any other key = continue)"))
 	}
 	return b.String()
+}
+
+// liveSpeedRow shows the three speeds with the current one highlighted.
+func liveSpeedRow(current export.Speed) string {
+	parts := []string{sMuted.Render("Speed")}
+	for i, s := range export.Speeds {
+		label := itoa(i+1) + " " + s.String()
+		if s == current {
+			parts = append(parts, sCursor.Render(" "+label+" "))
+		} else {
+			parts = append(parts, sMuted.Render(" "+label+" "))
+		}
+	}
+	return strings.Join(parts, " ") + sMuted.Render("  ← → to change")
 }
 
 // estimate extrapolates the time left from the pace of the current phase.
